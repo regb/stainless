@@ -590,6 +590,10 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
      *   back edge: x --> n       (n created by the body)
      *   head:      x --> a | n'  (n' is n, relocated to the previous iteration)
      * }}}
+     *
+     * The original content of a slot whose owner exists before the loop, such as `p.f` read first in the
+     * body, is the same object at every iteration and keeps its name. Relocating it would make nested
+     * loops see a different copy at every level, so that they converge slowly and see aliases that are not there.
      */
     private def refineWhile(analysis: HeapApproximationAnalysis, point: ProgramPoint, e: While)(using symbols: Symbols): HeapApproximationAnalysis = {
       val graph = analysis.graph
@@ -613,8 +617,8 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
 
       val previousIteration = ExpressionRegistry(ExpressionID(e))
       val iterationHeap = backHeap.withoutResults(e)
-      val relocatedHeap = iterationHeap
-        .created(entryHeap)
+      val outsideEntryHeap = HeapPointApproximation.merge(point.scope, entryHeaps)
+      val relocatedHeap = (iterationHeap.created(entryHeap) -- iterationHeap.preexistingOriginals(outsideEntryHeap))
         .foldLeft(iterationHeap)((heap, created) => heap.withRelocate(previousIteration, created))
         .prune(point.scope)
 

@@ -461,6 +461,19 @@ trait HeapApproximationPoints extends HeapApproximations {
         case immutable: HeapImmutable if !before.isAlive(immutable) => immutable
       }
 
+    /** The values read here as the original content of slots whose owners all exist in `before`.
+     *
+     * Such a value is the object its slots held before `before`, whatever happened since: a loop
+     * that reads it reads the same object at every iteration, so it must not be relocated.
+     */
+    def preexistingOriginals(before: HeapPointApproximation): Set[HeapValue] =
+      references.references.toSeq
+        .collect { case (original: HeapOriginal, reference) => (original.slot.owner, reference) }
+        .flatMap { case (owner, reference) => reference.toSet.collect { case value: HeapValue if value.isOriginal => value -> owner } }
+        .groupMap(_._1)(_._2)
+        .collect { case (value, owners) if owners.forall(before.isAlive) => value }
+        .toSet
+
     /** Imports the slots `other` assigned and the originals it named, translating its unread originals into what this heap holds. */
     def withOverride(other: HeapPointApproximation): HeapPointApproximation = {
       val assigned = other.references.references.keySet.collect {
