@@ -85,7 +85,7 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
     }
 
     /** Records at each point the variables live after it, the variables captured by a lambda or a local function being always live. */
-    private def computeLiveness(using Symbols): HeapApproximationGraph = {
+    private def computeLiveness(using symbols: Symbols): HeapApproximationGraph = {
       def readsCollection(value: Expr): Boolean = value match {
         case _: Snapshot | _: FreshCopy => false
         case _: ArraySelect | _: MutableMapApply => true
@@ -103,8 +103,8 @@ trait HeapApproximationGraphs extends HeapApproximationPoints {
           case Let(vd, value, _) => Seq(vd.id -> sourcesOf(value))
           case LetVar(vd, value, _) => Seq(vd.id -> sourcesOf(value))
           case Assignment(v, value) => Seq(v.id -> sourcesOf(value))
-          case ArrayUpdate(array, _, value) => exprOps.variablesOf(value).toSeq.map(_.id -> exprOps.variablesOf(array).map(_.id))
-          case MutableMapUpdate(map, _, value) => exprOps.variablesOf(value).toSeq.map(_.id -> exprOps.variablesOf(map).map(_.id))
+          case ArrayUpdate(array, _, value) if symbols.isMutableType(value.getType) => exprOps.variablesOf(value).toSeq.map(_.id -> exprOps.variablesOf(array).map(_.id))
+          case MutableMapUpdate(map, _, value) if symbols.isMutableType(value.getType) => exprOps.variablesOf(value).toSeq.map(_.id -> exprOps.variablesOf(map).map(_.id))
           case _ => Seq.empty
         })
         .groupMapReduce(_._1)(_._2)(_ ++ _)
