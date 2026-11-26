@@ -151,7 +151,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
 
             withBindings(bindings, MutableMapApply(normalizedMap, normalizedKey).copiedFrom(e))
 
-          case _: ClassSelector | _: TupleSelect =>
+          case _: ClassSelector | _: TupleSelect | _: ArrayLength =>
             val exprOps.Deconstructor(owner +: rest, rebuild) = e: @unchecked
             val (bindings, inner) = splitBindings(transform(owner))
 
@@ -223,7 +223,7 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
       private def normalizeAccess(collection: Expr, index: Expr, collectionName: String, indexName: String): (Seq[(ValDef, Expr)], Expr, Expr) = {
         def bindCollection: (Seq[(ValDef, Expr)], Expr) = {
           if (symbols.isImmutableExpression(index)) {
-            return (Seq.empty, transform(collection))
+            return splitBindings(transform(collection))
           }
 
           bindUnlessImmutable(collection, collectionName)
@@ -244,12 +244,14 @@ trait AssignmentRewrites extends HeapApproximationAnalyses {
         bind(e, name)
       }
 
-      /** Binds `e` to a fresh variable named after `name`. */
+      /** Binds `e` to a fresh variable named after `name`, after the bindings introduced inside `e`, which stay in scope as long as the variable. */
       private def bind(e: Expr, name: String): (Seq[(ValDef, Expr)], Expr) = {
         val vd = ValDef.fresh(name, e.getType).copiedFrom(e)
         introducedIds += vd.id
 
-        (Seq(vd -> transform(e)), vd.toVariable)
+        val (bindings, inner) = splitBindings(transform(e))
+
+        (bindings :+ (vd -> inner), vd.toVariable)
       }
     }
 
