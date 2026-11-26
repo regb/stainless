@@ -1,0 +1,15 @@
+[ Error  ] ClassBodyStatements.scala:8:5: Only definitions are allowed inside class bodies.
+               assert(x > 0) // not allowed here
+               ^^^^^^^^^^^^^
+[ Error  ] ClassBodyStatements.scala:12:5: Only definitions are allowed inside class bodies.
+               assert(false) // not allowed here
+               ^^^^^^^^^^^^^
+[ Error  ] ClassBodyStatements.scala:14:5: Only definitions are allowed inside class bodies.
+               x + 1 // not allowed here
+               ^^^^^
+[ Error  ] ClassBodyStatements.scala:17:5: Only definitions are allowed inside class bodies.
+               assert(false) // not allowed here
+               ^^^^^^^^^^^^^
+[ Error  ] ClassBodyStatements.scala:20:5: Only definitions are allowed inside class bodies.
+               assert(false) // not allowed here
+               ^^^^^^^^^^^^^

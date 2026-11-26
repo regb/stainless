@@ -756,8 +756,9 @@ class CodeExtraction(inoxCtx: inox.Context,
       case Export(_, _) =>
         // ignore
 
+      // Not a warning: the tree would be dropped, together with the assertions it may contain
       case other =>
-        reporter.warning(other.sourcePos, s"In class $id, Stainless does not support:\n$other")
+        outOfSubsetError(other, s"In class $id, Stainless does not support:\n$other")
     }
 
     methods ++= extractParentArguments(sym, template, classType, inLibrary)(using tpCtx)

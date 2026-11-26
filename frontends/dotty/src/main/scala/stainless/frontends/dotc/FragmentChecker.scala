@@ -620,6 +620,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           }
 
           val template = cd.rhs.asInstanceOf[tpd.Template]
+          checkTemplateStatements(template, isObject = false)
           traverse(template.constr)
           template.body.foreach {
             case nested @ ExClassDef() if sym `is` ModuleClass =>
@@ -706,13 +707,7 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
 
         case tpl @ Template(_, _, _, _) =>
-          for (t <- tpl.body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[tpd.Import])) {
-            // `require` is allowed inside classes, but not inside objects
-            if (RequireMethods(t.symbol) && (ctx.owner `is` ModuleClass))
-              reportError(t.sourcePos, "`require` is not allowed inside object bodies.")
-            else
-              reportError(t.sourcePos, "Only definitions are allowed inside class bodies.")
-          }
+          checkTemplateStatements(tpl, isObject = ctx.owner `is` ModuleClass)
           traverse(tpl.constr)
           // We do not visit parents, as they will contain reference to synthetic classes such as Product, Serializable, etc.
           traverse(tpl.self)
@@ -722,6 +717,18 @@ class FragmentChecker(inoxCtx: inox.Context)(using override val dottyCtx: DottyC
           traverseChildren(tree)
       }
     }
+
+    /** Reports the statements of the body of a class, trait or object: they are not extracted, so they
+      * would otherwise be silently dropped, together with the assertions they may contain. A `require`
+      * is a class invariant, but it is not allowed inside objects.
+      */
+    private def checkTemplateStatements(tpl: tpd.Template, isObject: Boolean)(using DottyContext): Unit =
+      for (t <- tpl.body if !(t.isDef || t.isType || t.isEmpty || t.isInstanceOf[tpd.Import] || t.isInstanceOf[tpd.Export])) {
+        if (!RequireMethods(t.symbol))
+          reportError(t.sourcePos, "Only definitions are allowed inside class bodies.")
+        else if (isObject)
+          reportError(t.sourcePos, "`require` is not allowed inside object bodies.")
+      }
 
     private def skipTraversal(sym: Symbol): Boolean = {
       isIgnoredSymbol(sym)
