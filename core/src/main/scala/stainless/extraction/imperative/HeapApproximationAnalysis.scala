@@ -590,6 +590,10 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
      *   back edge: x --> n       (n created by the body)
      *   head:      x --> a | n'  (n' is n, relocated to the previous iteration)
      * }}}
+     *
+     * The conditions on the variables declared in the body, such as the `cond` that `ConditionalHoisting` binds for
+     * each `if`, are forgotten: these variables are out of scope at the head. Kept, the conditions of two `if`s of the
+     * body would be nested in the order the heaps are merged, which can alternate, so that the analysis never stabilizes.
      */
     private def refineWhile(analysis: HeapApproximationAnalysis, point: ProgramPoint, e: While)(using symbols: Symbols): HeapApproximationAnalysis = {
       val graph = analysis.graph
@@ -621,6 +625,12 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
       val mergedHeap = HeapPointApproximation.merge(point.scope, Seq(entryHeap, relocatedHeap))
       val outsideHeap = HeapPointApproximation.merge(point.scope, entryHeaps :+ relocatedHeap)
 
+      val bodyLocals: Set[Identifier] = exprOps.collect[Identifier] {
+        case Let(vd, _, _) => Set(vd.id)
+        case LetVar(vd, _, _) => Set(vd.id)
+        case _ => Set.empty
+      }(e.body)
+
       val finalHeap = mergedHeap.references.references.keySet
         .foldLeft(mergedHeap) { (heap, holder) =>
           if (relocatedHeap.references.get(holder).isEmpty || !relocatedHeap.isFresh(holder)) {
@@ -629,6 +639,7 @@ trait HeapApproximationAnalyses extends HeapApproximationGraphs {
             heap.withReference(holder, outsideHeap.references(holder))
           }
         }
+        .withoutConditionOn(bodyLocals)
         .prune(point.scope)
 
       analysis.withHeap(point, finalHeap)
